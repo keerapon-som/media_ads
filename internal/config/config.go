@@ -125,7 +125,7 @@ func doInit() {
 				Port:     getEnvInt("POSTGRES_PORT", 5432),
 				User:     getEnvString("POSTGRES_USER", "postgres"),
 				Password: getEnvString("POSTGRES_PASSWORD", ""),
-				DBName:   getEnvString("POSTGRES_DBNAME", "media_archives"),
+				DBName:   getEnvString("POSTGRES_DBNAME", "object_library"),
 				SSLMode:  getEnvString("POSTGRES_SSLMODE", "disable"),
 			},
 		},

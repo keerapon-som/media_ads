@@ -10,20 +10,23 @@ import (
 	"github.com/google/uuid"
 )
 
-type MediaLibraryHTTPHandler struct {
-	mediaProvider   *domain.MediaLibrary
+type ObjectLibraryHTTPHandler struct {
+	mediaProvider   *domain.ObjectLibrary
 	commandBus      *cqrs.CommandBus
 	eventBus        *cqrs.EventBus
 	watermilllogger *log.WatermillLogrusAdapter
 }
 
-type MediaLibraryProviderHTTPInterface interface {
-	UploadMedia(c *fiber.Ctx) error
+type ObjectLibraryProviderHTTPInterface interface {
+	ReserveUploadSlot(c *fiber.Ctx) error
+	UploadObject(c *fiber.Ctx) error
 	GetObject(c *fiber.Ctx) error
+	GetObjectInfo(c *fiber.Ctx) error
+	DeleteObject(c *fiber.Ctx) error
 }
 
-func NewMediaLibraryProviderHTTPHandler(mediaProvider *domain.MediaLibrary, commandBus *cqrs.CommandBus, eventBus *cqrs.EventBus, watermillLogger *log.WatermillLogrusAdapter) MediaLibraryProviderHTTPInterface {
-	return &MediaLibraryHTTPHandler{
+func NewObjectLibraryProviderHTTPHandler(mediaProvider *domain.ObjectLibrary, commandBus *cqrs.CommandBus, eventBus *cqrs.EventBus, watermillLogger *log.WatermillLogrusAdapter) ObjectLibraryProviderHTTPInterface {
+	return &ObjectLibraryHTTPHandler{
 		mediaProvider:   mediaProvider,
 		commandBus:      commandBus,
 		eventBus:        eventBus,
@@ -31,7 +34,28 @@ func NewMediaLibraryProviderHTTPHandler(mediaProvider *domain.MediaLibrary, comm
 	}
 }
 
-func (h *MediaLibraryHTTPHandler) UploadMedia(c *fiber.Ctx) error {
+func (h *ObjectLibraryHTTPHandler) ReserveUploadSlot(c *fiber.Ctx) error {
+	uploadID, err := h.mediaProvider.ReserveUploadSlot()
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error":  "failed to reserve upload slot",
+			"detail": err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"upload_id": uploadID,
+	})
+}
+
+func (h *ObjectLibraryHTTPHandler) UploadObject(c *fiber.Ctx) error {
+
+	upload_id := c.Params("upload_id")
+	if upload_id == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "upload_id is required in path",
+		})
+	}
 
 	objectID := c.FormValue("object_id")
 	if objectID == "" {
@@ -45,7 +69,7 @@ func (h *MediaLibraryHTTPHandler) UploadMedia(c *fiber.Ctx) error {
 		})
 	}
 
-	err = h.mediaProvider.UploadMedia(objectID, fileHeader)
+	err = h.mediaProvider.UploadObject(upload_id, objectID, fileHeader)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":  "failed to upload media",
@@ -60,31 +84,7 @@ func (h *MediaLibraryHTTPHandler) UploadMedia(c *fiber.Ctx) error {
 	})
 }
 
-// func (h *Handler) DownloadMedia(c *fiber.Ctx) error {
-
-// 	objectID := c.Params("object_id")
-// 	if objectID == "" {
-// 		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-// 			"error": "object_id is required in path",
-// 		})
-// 	}
-
-// 	res, err := h.mediaProvider.DownloadMedia(objectID)
-// 	if err != nil {
-// 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-// 			"error":  "failed to download media",
-// 			"detail": err.Error(),
-// 		})
-// 	}
-
-// 	c.Download(res.File.Name(), objectID+"."+res.Extension)
-
-// 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-// 		"status": "success",
-// 	})
-// }
-
-func (h *MediaLibraryHTTPHandler) GetObject(c *fiber.Ctx) error {
+func (h *ObjectLibraryHTTPHandler) GetObject(c *fiber.Ctx) error {
 
 	objectID := c.Params("object_id")
 	if objectID == "" {
@@ -93,7 +93,7 @@ func (h *MediaLibraryHTTPHandler) GetObject(c *fiber.Ctx) error {
 		})
 	}
 
-	res, err := h.mediaProvider.DownloadMedia(objectID)
+	res, err := h.mediaProvider.GetObject(objectID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":  "failed to download media",
@@ -110,4 +110,48 @@ func (h *MediaLibraryHTTPHandler) GetObject(c *fiber.Ctx) error {
 
 	return c.Status(http.StatusOK).SendStream(res.File)
 
+}
+
+func (h *ObjectLibraryHTTPHandler) GetObjectInfo(c *fiber.Ctx) error {
+	objectID := c.Params("object_id")
+	if objectID == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "object_id is required in path",
+		})
+	}
+
+	res, err := h.mediaProvider.GetObjectInfo(objectID)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error":  "failed to get media info",
+			"detail": err.Error(),
+		})
+	}
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"status": "success",
+		"data":   res,
+	})
+}
+
+func (h *ObjectLibraryHTTPHandler) DeleteObject(c *fiber.Ctx) error {
+
+	objectID := c.Params("object_id")
+	if objectID == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "object_id is required in path",
+		})
+	}
+
+	err := h.mediaProvider.DeleteObject(objectID)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error":  "failed to delete media",
+			"detail": err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"status": "success",
+		"id":     objectID,
+	})
 }

@@ -31,7 +31,7 @@ type Service struct {
 
 func New(redisClient *redis.Client,
 	mediaPublisher *domain.MediaPublisher,
-	mediaProvider *domain.MediaLibrary,
+	mediaProvider *domain.ObjectLibrary,
 	numberConcurrent int,
 ) *Service {
 
@@ -54,10 +54,9 @@ func New(redisClient *redis.Client,
 	for i := 0; i < numberConcurrent; i++ {
 		watermillroute := message.NewWatermillRouter(publisher, eventProcessorConfig, &eventHandler, commandProcessorConfig, &commandHandler, watermillLogger)
 		listRouter = append(listRouter, watermillroute.Router())
-
 	}
 
-	mediaProviderHTTPHandler := httpCatchup.NewMediaLibraryProviderHTTPHandler(mediaProvider, commandBus, eventBus, watermillLogger)
+	mediaProviderHTTPHandler := httpCatchup.NewObjectLibraryProviderHTTPHandler(mediaProvider, commandBus, eventBus, watermillLogger)
 
 	return &Service{
 		watermillLogger:   watermillLogger,

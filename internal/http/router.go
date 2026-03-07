@@ -12,7 +12,7 @@ var (
 	buildtime, buildcommit, version string
 )
 
-func NewHTTPRouter(mediaArchiveHandler MediaLibraryProviderHTTPInterface) *fiber.App {
+func NewHTTPRouter(mediaArchiveHandler ObjectLibraryProviderHTTPInterface) *fiber.App {
 	app := fiber.New(fiber.Config{
 		Immutable: true,
 		BodyLimit: config.GetConfig().ServerConfig.HTTP.BodyLimitBytes,
@@ -31,9 +31,12 @@ func NewHTTPRouter(mediaArchiveHandler MediaLibraryProviderHTTPInterface) *fiber
 	// app.Get("/hello_command", h.HelloCQRSCommand)
 	// app.Get("/hello_event", h.HelloCQRSEvent)
 
-	mpGroup := app.Group("/media_library")
-	mpGroup.Post("/upload", mediaArchiveHandler.UploadMedia)
-	mpGroup.Get("/object/:object_id", mediaArchiveHandler.GetObject)
+	objectLib := app.Group("/object_library")
+	objectLib.Post("/researve_upload_slot", mediaArchiveHandler.ReserveUploadSlot)
+	objectLib.Post("/upload/:upload_id", mediaArchiveHandler.UploadObject)
+	objectLib.Get("/object/:object_id", mediaArchiveHandler.GetObject)
+	objectLib.Get("/object_info/:object_id", mediaArchiveHandler.GetObjectInfo)
+	objectLib.Delete("/object/:object_id", mediaArchiveHandler.DeleteObject)
 
 	return app
 

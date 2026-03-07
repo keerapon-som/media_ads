@@ -55,8 +55,13 @@ func (o *ObjectFileTransferLocal) UploadObject(key string, file *multipart.File)
 	return nil
 }
 
-func (o *ObjectFileTransferLocal) DownloadObject(key string) (*os.File, error) {
+func (o *ObjectFileTransferLocal) GetObject(key string) (*os.File, error) {
 	storedPath := filepath.Join(o.RootStoragePath, "/", key)
 
 	return os.Open(storedPath)
+}
+
+func (o *ObjectFileTransferLocal) DeleteObject(key string) error {
+	storedPath := filepath.Join(o.RootStoragePath, "/", key)
+	return os.Remove(storedPath)
 }
