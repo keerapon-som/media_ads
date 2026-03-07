@@ -8,19 +8,33 @@ import (
 	"media_ads/internal/entities"
 )
 
-type ObjectLibraryRepo struct {
+type ObjectLibRepo struct {
 	db *sql.DB
 }
 
+type ObjectLibraryRepo struct {
+	db             *sql.DB
+	UploadSlotRepo *UploadSlotRepo
+	ObjectLibRepo  *ObjectLibRepo
+}
+
 func NewObjectLibraryRepo(db *sql.DB) *ObjectLibraryRepo {
-	return &ObjectLibraryRepo{db: db}
+
+	uploadSlotRepo := &UploadSlotRepo{db: db}
+	objectLibRepo := &ObjectLibRepo{db: db}
+
+	return &ObjectLibraryRepo{
+		db:             db,
+		UploadSlotRepo: uploadSlotRepo,
+		ObjectLibRepo:  objectLibRepo,
+	}
 }
 
 func (m *ObjectLibraryRepo) GetDB() *sql.DB {
 	return m.db
 }
 
-func (m *ObjectLibraryRepo) SaveObjectLibrary(tx *sql.Tx, objectID string, key string, filename string, extension string, sizeBytes int64, contentType string, probeData map[string]any) error {
+func (m *ObjectLibRepo) SaveObjectLibrary(tx *sql.Tx, objectID string, key string, filename string, extension string, sizeBytes int64, contentType string, probeData map[string]any) error {
 	probeDataJSON, err := json.Marshal(probeData)
 	if err != nil {
 		return fmt.Errorf("marshal probe_data: %w", err)
@@ -61,7 +75,7 @@ func (m *ObjectLibraryRepo) SaveObjectLibrary(tx *sql.Tx, objectID string, key s
 	return nil
 }
 
-func (m *ObjectLibraryRepo) GetObjectLibraryByID(objectID string) (*entities.ObjectLibraryRepo, error) {
+func (m *ObjectLibRepo) GetObjectLibraryByID(objectID string) (*entities.ObjectLibraryRepo, error) {
 	const query = `
 		SELECT
 			object_id,
@@ -106,7 +120,7 @@ func (m *ObjectLibraryRepo) GetObjectLibraryByID(objectID string) (*entities.Obj
 	return &mediaArchive, nil
 }
 
-func (m *ObjectLibraryRepo) DeleteObjectLibraryByObjectID(tx *sql.Tx, objectID string) error {
+func (m *ObjectLibRepo) DeleteObjectLibraryByObjectID(tx *sql.Tx, objectID string) error {
 	const query = `
 		DELETE FROM object_library
 		WHERE object_id = $1
@@ -124,4 +138,72 @@ func (m *ObjectLibraryRepo) DeleteObjectLibraryByObjectID(tx *sql.Tx, objectID s
 	}
 
 	return nil
+}
+
+type UploadSlotRepo struct {
+	db *sql.DB
+}
+
+func (m *UploadSlotRepo) ReserveUploadSlot(tx *sql.Tx, uploadID string) error {
+	const query = `
+		INSERT INTO upload_slot (
+			upload_id,
+			status
+		)
+		VALUES ($1, 'pending')
+	`
+
+	if tx != nil {
+		if _, err := tx.Exec(query, uploadID); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if _, err := m.db.Exec(query, uploadID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *UploadSlotRepo) UpdateUploadStatus(tx *sql.Tx, uploadID string, status string) error {
+
+	const query = `
+		UPDATE upload_slot
+		SET status = $1, updated_at = NOW()
+		WHERE upload_id = $2
+	`
+
+	if tx != nil {
+		if _, err := tx.Exec(query, status, uploadID); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if _, err := m.db.Exec(query, status, uploadID); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *UploadSlotRepo) GetUploadSlot(uploadID string) (*entities.UploadSlotRepo, error) {
+	const query = `
+		SELECT upload_id, status, created_at, updated_at
+		FROM upload_slot
+		WHERE upload_id = $1
+	`
+
+	row := m.db.QueryRow(query, uploadID)
+
+	var slot entities.UploadSlotRepo
+	err := row.Scan(&slot.UploadID, &slot.Status, &slot.CreatedAt, &slot.UpdatedAt)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &slot, nil
 }

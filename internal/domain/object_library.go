@@ -123,7 +123,7 @@ func (m *ObjectLibrary) UploadObject(upload_id string, objectID string, fileHead
 
 	key := "subfolder" + "/" + objectID
 
-	err = m.mediaProviderRepo.SaveObjectLibrary(
+	err = m.mediaProviderRepo.ObjectLibRepo.SaveObjectLibrary(
 		tx,
 		objectID,
 		key,
@@ -152,7 +152,7 @@ func (m *ObjectLibrary) UploadObject(upload_id string, objectID string, fileHead
 
 func (m *ObjectLibrary) GetObject(objectID string) (*entities.DownloadResponse, error) {
 
-	mediaProvider, err := m.mediaProviderRepo.GetObjectLibraryByID(objectID)
+	mediaProvider, err := m.mediaProviderRepo.ObjectLibRepo.GetObjectLibraryByID(objectID)
 	if err != nil {
 		return &entities.DownloadResponse{}, err
 	}
@@ -173,11 +173,11 @@ func (m *ObjectLibrary) GetObject(objectID string) (*entities.DownloadResponse, 
 
 func (m *ObjectLibrary) GetObjectInfo(objectID string) (*entities.ObjectLibraryRepo, error) {
 
-	return m.mediaProviderRepo.GetObjectLibraryByID(objectID)
+	return m.mediaProviderRepo.ObjectLibRepo.GetObjectLibraryByID(objectID)
 }
 
 func (m *ObjectLibrary) DeleteObject(objectID string) error {
-	mediaProvider, err := m.mediaProviderRepo.GetObjectLibraryByID(objectID)
+	mediaProvider, err := m.mediaProviderRepo.ObjectLibRepo.GetObjectLibraryByID(objectID)
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func (m *ObjectLibrary) DeleteObject(objectID string) error {
 		}
 	}()
 
-	err = m.mediaProviderRepo.DeleteObjectLibraryByObjectID(tx, objectID)
+	err = m.mediaProviderRepo.ObjectLibRepo.DeleteObjectLibraryByObjectID(tx, objectID)
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func (m *ObjectLibrary) ReserveUploadSlot() (string, error) {
 
 	uploadID := uuid.NewString()
 
-	return uploadID, m.mediaProviderRepo.ReserveUploadSlot(nil, uploadID)
+	return uploadID, m.mediaProviderRepo.UploadSlotRepo.ReserveUploadSlot(nil, uploadID)
 }
 
 // func (m *ObjectLibrary) updateUploadCompletion(tx *sql.Tx, uploadID string, success bool) error {
@@ -220,7 +220,7 @@ func (m *ObjectLibrary) ReserveUploadSlot() (string, error) {
 
 func (m *ObjectLibrary) claimUploadSlot(tx *sql.Tx, uploadID string) error {
 
-	resp, err := m.mediaProviderRepo.GetUploadSlot(uploadID)
+	resp, err := m.mediaProviderRepo.UploadSlotRepo.GetUploadSlot(uploadID)
 	if err != nil {
 		return err
 	}
@@ -229,10 +229,10 @@ func (m *ObjectLibrary) claimUploadSlot(tx *sql.Tx, uploadID string) error {
 		return fmt.Errorf("upload slot is not pending: upload_id=%s, status=%s", uploadID, resp.Status)
 	}
 
-	return m.mediaProviderRepo.UpdateUploadStatus(tx, uploadID, "claimed")
+	return m.mediaProviderRepo.UploadSlotRepo.UpdateUploadStatus(tx, uploadID, "claimed")
 }
 
 func (m *ObjectLibrary) updateUploadSlotStatus(tx *sql.Tx, uploadID string, status string) error {
 
-	return m.mediaProviderRepo.UpdateUploadStatus(tx, uploadID, status)
+	return m.mediaProviderRepo.UploadSlotRepo.UpdateUploadStatus(tx, uploadID, status)
 }
