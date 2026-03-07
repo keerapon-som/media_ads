@@ -3,7 +3,6 @@ package domain
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"media_ads/internal/entities"
 	"media_ads/internal/repository"
 	"media_ads/packages"
@@ -14,15 +13,13 @@ import (
 	"time"
 )
 
-type MediaProvider struct {
-	bucket             string
+type MediaArchive struct {
 	ObjectFileTransfer *packages.ObjectFileTransferLocal
-	mediaProviderRepo  *repository.MediaProviderRepo
+	mediaProviderRepo  *repository.MediaArchiveRepo
 }
 
-func NewMediaProvider(bucket string, objectFileTransfer *packages.ObjectFileTransferLocal, mediaProviderRepo *repository.MediaProviderRepo) *MediaProvider {
-	return &MediaProvider{
-		bucket:             bucket,
+func NewMediaArchive(objectFileTransfer *packages.ObjectFileTransferLocal, mediaProviderRepo *repository.MediaArchiveRepo) *MediaArchive {
+	return &MediaArchive{
 		ObjectFileTransfer: objectFileTransfer,
 		mediaProviderRepo:  mediaProviderRepo,
 	}
@@ -91,20 +88,45 @@ func ffprobeFromFileHeader(fileHeader *multipart.FileHeader) (map[string]any, er
 	return parsed, nil
 }
 
-func (m *MediaProvider) UploadMedia(objectID, userID string, file *multipart.File, fileHeader *multipart.FileHeader) error {
+func (m *MediaArchive) UploadMedia(objectID string, fileHeader *multipart.FileHeader) error {
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
 	inspection := collectMediaInspection(fileHeader)
 
-	fmt.Println("FileName ", inspection.Filename)
+	key := "subfolder" + "/" + objectID + "." + inspection.Extension
 
-	key := userID + "/" + objectID + "." + inspection.Extension
+	tx, err := m.mediaProviderRepo.GetDB().Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		} else {
+			err = tx.Commit()
+		}
+	}()
 
-	err := m.ObjectFileTransfer.UploadObject(m.bucket, key, file)
+	err = m.mediaProviderRepo.SaveMediaArchive(
+		tx,
+		objectID,
+		key,
+		inspection.Filename,
+		inspection.Extension,
+		inspection.SizeBytes,
+		inspection.ContentType,
+		inspection.ProbeData,
+	)
 	if err != nil {
 		return err
 	}
 
-	_, err = m.mediaProviderRepo.SaveMediaProvider(objectID, m.bucket, userID)
+	err = m.ObjectFileTransfer.UploadObject(key, &file)
 	if err != nil {
 		return err
 	}
@@ -112,16 +134,22 @@ func (m *MediaProvider) UploadMedia(objectID, userID string, file *multipart.Fil
 	return nil
 }
 
-func (m *MediaProvider) GetMedia(id string) (*[]byte, error) {
-	mediaProvider, err := m.mediaProviderRepo.GetMediaProviderByID(id)
+func (m *MediaArchive) DownloadMedia(objectID string) (*entities.DownloadResponse, error) {
+
+	mediaProvider, err := m.mediaProviderRepo.GetMediaArchiveByID(objectID)
 	if err != nil {
-		return nil, err
+		return &entities.DownloadResponse{}, err
 	}
 
-	b, err := m.ObjectFileTransfer.GetObject(mediaProvider.Bucket, mediaProvider.Key)
+	file, err := m.ObjectFileTransfer.DownloadObject(mediaProvider.Key)
 	if err != nil {
-		return nil, err
+		return &entities.DownloadResponse{}, err
 	}
 
-	return b, nil
+	return &entities.DownloadResponse{
+		Filename:  mediaProvider.Filename,
+		Extension: mediaProvider.Extension,
+		SizeBytes: mediaProvider.SizeBytes,
+		File:      file,
+	}, nil
 }

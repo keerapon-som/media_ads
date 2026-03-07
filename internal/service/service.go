@@ -30,7 +30,8 @@ type Service struct {
 }
 
 func New(redisClient *redis.Client,
-	mediaProvider *domain.MediaProvider,
+	mediaPublisher *domain.MediaPublisher,
+	mediaProvider *domain.MediaArchive,
 	numberConcurrent int,
 ) *Service {
 

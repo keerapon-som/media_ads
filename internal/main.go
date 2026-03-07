@@ -51,14 +51,30 @@ func main() {
 
 	objectFileTransfer := packages.NewObjectFileTransferLocal("root-object-download")
 
-	mediaProviderRepo := repository.NewMediaProviderRepo(nil)
+	pg := packages.NewPostgresql(
+		config.ServiceConfig.PostgresConfig.Host,
+		config.ServiceConfig.PostgresConfig.Port,
+		config.ServiceConfig.PostgresConfig.User,
+		config.ServiceConfig.PostgresConfig.Password,
+		config.ServiceConfig.PostgresConfig.DBName,
+		config.ServiceConfig.PostgresConfig.SSLMode,
+	)
 
-	mediaProvider := domain.NewMediaProvider("media-ads", objectFileTransfer, mediaProviderRepo)
+	db, err := pg.Connect()
+	if err != nil {
+		log.WithError(err).Fatal("failed to connect to postgres")
+	}
+	defer packages.Disconnect(db)
+
+	mediaProviderRepo := repository.NewMediaArchiveRepo(db)
+
+	mediaPublisher := domain.NewMediaPublisher()
+	mediaProvider := domain.NewMediaArchive(objectFileTransfer, mediaProviderRepo)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	err = service.New(redisClient, mediaProvider, 10).Run(ctx)
+	err = service.New(redisClient, mediaPublisher, mediaProvider, 10).Run(ctx)
 	if err != nil {
 		panic(err)
 	}

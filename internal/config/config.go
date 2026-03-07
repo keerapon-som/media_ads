@@ -51,8 +51,18 @@ type MiddlewareConfig struct {
 	AllowCors string
 }
 
+type PostgresConfig struct {
+	Host     string
+	Port     int
+	User     string
+	Password string
+	DBName   string
+	SSLMode  string
+}
+
 type ServiceConfig struct {
-	Redis RedisConfig
+	Redis          RedisConfig
+	PostgresConfig PostgresConfig
 }
 
 func GetConfig() *Config {
@@ -109,6 +119,14 @@ func doInit() {
 				Addr:     getEnvString("REDIS_ADDR", "localhost:6379"),
 				Password: getEnvString("REDIS_PASSWORD", ""),
 				DB:       getEnvInt("REDIS_DB", 0),
+			},
+			PostgresConfig: PostgresConfig{
+				Host:     getEnvString("POSTGRES_HOST", "localhost"),
+				Port:     getEnvInt("POSTGRES_PORT", 5432),
+				User:     getEnvString("POSTGRES_USER", "postgres"),
+				Password: getEnvString("POSTGRES_PASSWORD", ""),
+				DBName:   getEnvString("POSTGRES_DBNAME", "media_archives"),
+				SSLMode:  getEnvString("POSTGRES_SSLMODE", "disable"),
 			},
 		},
 	}

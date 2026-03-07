@@ -9,13 +9,6 @@ import (
 
 func (h *Handler) UploadMedia(c *fiber.Ctx) error {
 
-	userID := c.FormValue("user_id")
-	if userID == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"error": "user_id is required in form field 'user_id'",
-		})
-	}
-
 	objectID := c.FormValue("object_id")
 	if objectID == "" {
 		objectID = uuid.NewString()
@@ -28,15 +21,7 @@ func (h *Handler) UploadMedia(c *fiber.Ctx) error {
 		})
 	}
 
-	src, err := fileHeader.Open()
-	if err != nil {
-		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
-			"error": "failed to open uploaded file",
-		})
-	}
-	defer src.Close()
-
-	err = h.mediaProvider.UploadMedia(objectID, userID, &src, fileHeader)
+	err = h.mediaProvider.UploadMedia(objectID, fileHeader)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":  "failed to upload media",
@@ -48,6 +33,30 @@ func (h *Handler) UploadMedia(c *fiber.Ctx) error {
 		"objectID":         objectID,
 		"progress_percent": 100,
 		"completed":        true,
+	})
+}
+
+func (h *Handler) DownloadMedia(c *fiber.Ctx) error {
+
+	objectID := c.Params("object_id")
+	if objectID == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "object_id is required in path",
+		})
+	}
+
+	res, err := h.mediaProvider.DownloadMedia(objectID)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error":  "failed to download media",
+			"detail": err.Error(),
+		})
+	}
+
+	c.Download(res.File.Name(), objectID+"."+res.Extension)
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"status": "success",
 	})
 }
 

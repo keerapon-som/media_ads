@@ -18,10 +18,10 @@ func NewObjectFileTransferLocal(rootStoragePath string) *ObjectFileTransferLocal
 	}
 }
 
-func (o *ObjectFileTransferLocal) UploadObject(buckket string, key string, file *multipart.File) error {
+func (o *ObjectFileTransferLocal) UploadObject(key string, file *multipart.File) error {
 	baseDir := o.RootStoragePath
 
-	storedPath := filepath.Join(baseDir, buckket, "/", key)
+	storedPath := filepath.Join(baseDir, "/", key)
 
 	// Ensure the base directory exists
 	if err := os.MkdirAll(filepath.Dir(storedPath), os.ModePerm); err != nil {
@@ -55,9 +55,8 @@ func (o *ObjectFileTransferLocal) UploadObject(buckket string, key string, file 
 	return nil
 }
 
-func (o *ObjectFileTransferLocal) GetObject(buckket string, key string) (*[]byte, error) {
-	// Implement logic to read the file from the local storage based on the buckket and key
-	// For example, you can construct the file path using the RootStoragePath, buckket, and key
-	// Then read the file and return its content as a byte slice
-	return nil, nil
+func (o *ObjectFileTransferLocal) DownloadObject(key string) (*os.File, error) {
+	storedPath := filepath.Join(o.RootStoragePath, "/", key)
+
+	return os.Open(storedPath)
 }

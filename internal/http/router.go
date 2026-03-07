@@ -19,10 +19,10 @@ type Handler struct {
 	commandBus      *cqrs.CommandBus
 	eventBus        *cqrs.EventBus
 	watermilllogger *log.WatermillLogrusAdapter
-	mediaProvider   *domain.MediaProvider
+	mediaProvider   *domain.MediaArchive
 }
 
-func NewHTTPRouter(commandBus *cqrs.CommandBus, eventBus *cqrs.EventBus, mediaProvider *domain.MediaProvider, watermillLogger *log.WatermillLogrusAdapter) *fiber.App {
+func NewHTTPRouter(commandBus *cqrs.CommandBus, eventBus *cqrs.EventBus, mediaProvider *domain.MediaArchive, watermillLogger *log.WatermillLogrusAdapter) *fiber.App {
 	app := fiber.New(fiber.Config{
 		Immutable: true,
 		BodyLimit: config.GetConfig().ServerConfig.HTTP.BodyLimitBytes,
@@ -48,6 +48,7 @@ func NewHTTPRouter(commandBus *cqrs.CommandBus, eventBus *cqrs.EventBus, mediaPr
 	app.Get("/hello_command", h.HelloCQRSCommand)
 	app.Get("/hello_event", h.HelloCQRSEvent)
 	app.Post("/upload_media", h.UploadMedia)
+	app.Get("/download_media/:object_id", h.DownloadMedia)
 	// app.Get("/upload_media/:upload_id/status", h.UploadMediaStatus)
 
 	return app
