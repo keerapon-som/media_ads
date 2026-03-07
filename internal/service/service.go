@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"media_ads/internal/config"
+	"media_ads/internal/domain"
 	"media_ads/internal/message"
 	"media_ads/internal/message/command"
 	"media_ads/internal/message/event"
@@ -29,6 +30,7 @@ type Service struct {
 }
 
 func New(redisClient *redis.Client,
+	mediaProvider *domain.MediaProvider,
 	numberConcurrent int,
 ) *Service {
 
@@ -57,7 +59,7 @@ func New(redisClient *redis.Client,
 	return &Service{
 		watermillLogger:   watermillLogger,
 		listMessageRouter: listRouter,
-		fiberApp:          httpCatchup.NewHTTPRouter(commandBus, eventBus, watermillLogger),
+		fiberApp:          httpCatchup.NewHTTPRouter(commandBus, eventBus, mediaProvider, watermillLogger),
 	}
 
 }

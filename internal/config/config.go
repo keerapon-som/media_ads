@@ -41,6 +41,7 @@ type ServerConfig struct {
 type HTTPConfig struct {
 	Port              string
 	ConnectionTimeout time.Duration
+	BodyLimitBytes    int
 	// ReadTimeout       int
 	// WriteTimeout      int
 	// ProxyURL string
@@ -100,6 +101,7 @@ func doInit() {
 			HTTP: HTTPConfig{
 				Port:              getEnvString("HTTP_PORT", "8888"),
 				ConnectionTimeout: getEnvDurationFromSeconds("HTTP_TIMEOUT_SEC", DEFAULT_HTTP_CLIENT_TIMEOUT),
+				BodyLimitBytes:    getEnvInt("HTTP_BODY_LIMIT_MB", 100) * 1024 * 1024,
 			},
 		},
 		ServiceConfig: ServiceConfig{

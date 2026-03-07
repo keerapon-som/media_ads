@@ -4,6 +4,8 @@ import (
 	"context"
 	"flag"
 	"media_ads/internal/config"
+	"media_ads/internal/domain"
+	"media_ads/internal/repository"
 	"media_ads/internal/service"
 	"media_ads/packages"
 	"os"
@@ -47,10 +49,16 @@ func main() {
 	}
 	initLogConfig(*debug)
 
+	objectFileTransfer := packages.NewObjectFileTransferLocal("root-object-download")
+
+	mediaProviderRepo := repository.NewMediaProviderRepo(nil)
+
+	mediaProvider := domain.NewMediaProvider("media-ads", objectFileTransfer, mediaProviderRepo)
+
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	err = service.New(redisClient, 10).Run(ctx)
+	err = service.New(redisClient, mediaProvider, 10).Run(ctx)
 	if err != nil {
 		panic(err)
 	}
