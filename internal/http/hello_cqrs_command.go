@@ -1,41 +1,32 @@
 package http
 
-import (
-	"context"
-	"media_ads/internal/entities"
+// func (h *Handler) HelloCQRSCommand(c *fiber.Ctx) error {
+// 	h.watermilllogger.Info("HelloCQRSCommand", nil)
 
-	"github.com/ThreeDotsLabs/go-event-driven/common/log"
-	"github.com/gofiber/fiber/v2"
-	"github.com/lithammer/shortuuid/v3"
-)
+// 	command := &entities.HelloCQRSCommand{
+// 		Hello: "Hello CQRS",
+// 	}
 
-func (h *Handler) HelloCQRSCommand(c *fiber.Ctx) error {
-	h.watermilllogger.Info("HelloCQRSCommand", nil)
+// 	ctx := c.UserContext()
+// 	if ctx == nil {
+// 		ctx = context.Background()
+// 	}
 
-	command := &entities.HelloCQRSCommand{
-		Hello: "Hello CQRS",
-	}
+// 	if log.CorrelationIDFromContext(ctx) == "" {
+// 		ctx = log.ContextWithCorrelationID(ctx, shortuuid.New())
+// 	}
 
-	ctx := c.UserContext()
-	if ctx == nil {
-		ctx = context.Background()
-	}
+// 	err := h.commandBus.Send(ctx, command)
+// 	if err != nil {
+// 		h.watermilllogger.Error("Error sending command", err, nil)
+// 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+// 			"error": "Internal Server Error",
+// 		})
+// 	}
+// 	h.watermilllogger.Info("Command sent", nil)
 
-	if log.CorrelationIDFromContext(ctx) == "" {
-		ctx = log.ContextWithCorrelationID(ctx, shortuuid.New())
-	}
-
-	err := h.commandBus.Send(ctx, command)
-	if err != nil {
-		h.watermilllogger.Error("Error sending command", err, nil)
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Internal Server Error",
-		})
-	}
-	h.watermilllogger.Info("Command sent", nil)
-
-	return c.Status(fiber.StatusOK).JSON(fiber.Map{
-		"status": "success",
-		"data":   command,
-	})
-}
+// 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+// 		"status": "success",
+// 		"data":   command,
+// 	})
+// }

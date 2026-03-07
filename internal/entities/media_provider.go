@@ -11,8 +11,9 @@ type MediaInfo struct {
 }
 
 type DownloadResponse struct {
-	Filename  string
-	Extension string
-	SizeBytes int64
-	File      *os.File
+	Filename    string
+	Extension   string
+	SizeBytes   int64
+	File        *os.File
+	ContentType string
 }

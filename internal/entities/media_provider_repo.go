@@ -1,6 +1,6 @@
 package entities
 
-type MediaArchiveRepo struct {
+type MediaLibraryRepo struct {
 	ObjectID    string         `json:"object_id"`
 	Key         string         `json:"key"`
 	Filename    string         `json:"filename"`

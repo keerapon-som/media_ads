@@ -66,10 +66,10 @@ func main() {
 	}
 	defer packages.Disconnect(db)
 
-	mediaProviderRepo := repository.NewMediaArchiveRepo(db)
+	mediaProviderRepo := repository.NewMediaLibraryRepo(db)
 
 	mediaPublisher := domain.NewMediaPublisher()
-	mediaProvider := domain.NewMediaArchive(objectFileTransfer, mediaProviderRepo)
+	mediaProvider := domain.NewMediaLibrary(objectFileTransfer, mediaProviderRepo)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()

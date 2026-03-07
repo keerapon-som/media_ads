@@ -2,11 +2,8 @@ package http
 
 import (
 	"media_ads/internal/config"
-	"media_ads/internal/domain"
 	"net/http"
 
-	"github.com/ThreeDotsLabs/go-event-driven/common/log"
-	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/pprof"
 )
@@ -15,14 +12,7 @@ var (
 	buildtime, buildcommit, version string
 )
 
-type Handler struct {
-	commandBus      *cqrs.CommandBus
-	eventBus        *cqrs.EventBus
-	watermilllogger *log.WatermillLogrusAdapter
-	mediaProvider   *domain.MediaArchive
-}
-
-func NewHTTPRouter(commandBus *cqrs.CommandBus, eventBus *cqrs.EventBus, mediaProvider *domain.MediaArchive, watermillLogger *log.WatermillLogrusAdapter) *fiber.App {
+func NewHTTPRouter(mediaArchiveHandler MediaLibraryProviderHTTPInterface) *fiber.App {
 	app := fiber.New(fiber.Config{
 		Immutable: true,
 		BodyLimit: config.GetConfig().ServerConfig.HTTP.BodyLimitBytes,
@@ -38,18 +28,12 @@ func NewHTTPRouter(commandBus *cqrs.CommandBus, eventBus *cqrs.EventBus, mediaPr
 		})
 	})
 
-	h := &Handler{
-		commandBus:      commandBus,
-		eventBus:        eventBus,
-		watermilllogger: watermillLogger,
-		mediaProvider:   mediaProvider,
-	}
+	// app.Get("/hello_command", h.HelloCQRSCommand)
+	// app.Get("/hello_event", h.HelloCQRSEvent)
 
-	app.Get("/hello_command", h.HelloCQRSCommand)
-	app.Get("/hello_event", h.HelloCQRSEvent)
-	app.Post("/upload_media", h.UploadMedia)
-	app.Get("/download_media/:object_id", h.DownloadMedia)
-	// app.Get("/upload_media/:upload_id/status", h.UploadMediaStatus)
+	mpGroup := app.Group("/media_library")
+	mpGroup.Post("/upload", mediaArchiveHandler.UploadMedia)
+	mpGroup.Get("/object/:object_id", mediaArchiveHandler.GetObject)
 
 	return app
 
