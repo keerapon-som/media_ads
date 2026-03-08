@@ -157,6 +157,10 @@ func (m *ObjectLibrary) GetObject(objectID string) (*entities.DownloadResponse, 
 		return &entities.DownloadResponse{}, err
 	}
 
+	if !mediaProvider.IsPublished {
+		return &entities.DownloadResponse{}, fmt.Errorf("object is not published: object_id=%s", objectID)
+	}
+
 	file, err := m.ObjectFileTransfer.GetObject(mediaProvider.Key)
 	if err != nil {
 		return &entities.DownloadResponse{}, err
@@ -212,6 +216,16 @@ func (m *ObjectLibrary) ReserveUploadSlot() (string, error) {
 	uploadID := uuid.NewString()
 
 	return uploadID, m.mediaProviderRepo.UploadSlotRepo.ReserveUploadSlot(nil, uploadID)
+}
+
+func (m *ObjectLibrary) PublishObject(objectID string) error {
+
+	return m.mediaProviderRepo.ObjectLibRepo.UpdatePublishedStatus(nil, objectID, true)
+}
+
+func (m *ObjectLibrary) UnpublishObject(objectID string) error {
+
+	return m.mediaProviderRepo.ObjectLibRepo.UpdatePublishedStatus(nil, objectID, false)
 }
 
 // func (m *ObjectLibrary) updateUploadCompletion(tx *sql.Tx, uploadID string, success bool) error {

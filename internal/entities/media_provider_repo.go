@@ -10,6 +10,9 @@ type ObjectLibraryRepo struct {
 	SizeBytes   int64          `json:"size_bytes"`
 	ContentType string         `json:"content_type"`
 	ProbeData   map[string]any `json:"probe_data"`
+	IsPublished bool           `json:"is_published"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 type UploadSlotRepo struct {

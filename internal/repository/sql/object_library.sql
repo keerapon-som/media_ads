@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS object_library (
     size_bytes   BIGINT NOT NULL CHECK (size_bytes >= 0),
     content_type TEXT NOT NULL,
     probe_data   JSONB NOT NULL DEFAULT '{}'::jsonb,
+    is_published BOOLEAN NOT NULL DEFAULT FALSE,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

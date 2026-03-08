@@ -23,6 +23,8 @@ type ObjectLibraryProviderHTTPInterface interface {
 	GetObject(c *fiber.Ctx) error
 	GetObjectInfo(c *fiber.Ctx) error
 	DeleteObject(c *fiber.Ctx) error
+	PublishObject(c *fiber.Ctx) error
+	UnpublishObject(c *fiber.Ctx) error
 }
 
 func NewObjectLibraryProviderHTTPHandler(mediaProvider *domain.ObjectLibrary, commandBus *cqrs.CommandBus, eventBus *cqrs.EventBus, watermillLogger *log.WatermillLogrusAdapter) ObjectLibraryProviderHTTPInterface {
@@ -146,6 +148,51 @@ func (h *ObjectLibraryHTTPHandler) DeleteObject(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":  "failed to delete media",
+			"detail": err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"status": "success",
+		"id":     objectID,
+	})
+}
+
+func (h *ObjectLibraryHTTPHandler) PublishObject(c *fiber.Ctx) error {
+	objectID := c.Params("object_id")
+	if objectID == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "object_id is required in path",
+		})
+	}
+
+	err := h.mediaProvider.PublishObject(objectID)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error":  "failed to publish media",
+			"detail": err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(fiber.Map{
+		"status": "success",
+		"id":     objectID,
+	})
+}
+
+func (h *ObjectLibraryHTTPHandler) UnpublishObject(c *fiber.Ctx) error {
+	objectID := c.Params("object_id")
+
+	if objectID == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "object_id is required in path",
+		})
+	}
+
+	err := h.mediaProvider.UnpublishObject(objectID)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error":  "failed to unpublish media",
 			"detail": err.Error(),
 		})
 	}

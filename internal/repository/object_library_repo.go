@@ -84,7 +84,10 @@ func (m *ObjectLibRepo) GetObjectLibraryByID(objectID string) (*entities.ObjectL
 			extension,
 			size_bytes,
 			content_type,
-			probe_data
+			probe_data,
+			is_published,
+			created_at,
+			updated_at
 		FROM object_library
 		WHERE object_id = $1
 		LIMIT 1
@@ -101,6 +104,9 @@ func (m *ObjectLibRepo) GetObjectLibraryByID(objectID string) (*entities.ObjectL
 		&mediaArchive.SizeBytes,
 		&mediaArchive.ContentType,
 		&probeDataJSON,
+		&mediaArchive.IsPublished,
+		&mediaArchive.CreatedAt,
+		&mediaArchive.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -135,6 +141,45 @@ func (m *ObjectLibRepo) DeleteObjectLibraryByObjectID(tx *sql.Tx, objectID strin
 
 	if _, err := m.db.Exec(query, objectID); err != nil {
 		return fmt.Errorf("delete media archive: %w", err)
+	}
+
+	return nil
+}
+
+func (m *ObjectLibRepo) UpdatePublishedStatus(tx *sql.Tx, objectID string, isPublished bool) error {
+	const query = `
+		UPDATE object_library
+		SET is_published = $1, updated_at = NOW()
+		WHERE object_id = $2
+	`
+
+	if tx != nil {
+		result, err := tx.Exec(query, isPublished, objectID)
+		if err != nil {
+			return fmt.Errorf("update published status with tx: %w", err)
+		}
+
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("update published status with tx rows affected: %w", err)
+		}
+		if affected == 0 {
+			return fmt.Errorf("object library not found for update: object_id=%s", objectID)
+		}
+		return nil
+	}
+
+	result, err := m.db.Exec(query, isPublished, objectID)
+	if err != nil {
+		return fmt.Errorf("update published status: %w", err)
+	}
+
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("update published status rows affected: %w", err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("object library not found for update: object_id=%s", objectID)
 	}
 
 	return nil

@@ -32,8 +32,10 @@ func NewHTTPRouter(mediaArchiveHandler ObjectLibraryProviderHTTPInterface) *fibe
 	// app.Get("/hello_event", h.HelloCQRSEvent)
 
 	objectLib := app.Group("/object_library")
-	objectLib.Post("/researve_upload_slot", mediaArchiveHandler.ReserveUploadSlot)
-	objectLib.Post("/upload/:upload_id", mediaArchiveHandler.UploadObject)
+	objectLib.Post("/researve_upload_slot", mediaArchiveHandler.ReserveUploadSlot) // should use as Internal and need secure
+	objectLib.Post("/publish/:object_id", mediaArchiveHandler.PublishObject)       // should use as Internal and need secure
+	objectLib.Post("/unpublish/:object_id", mediaArchiveHandler.UnpublishObject)   // should use as Internal and need secure
+	objectLib.Put("/upload/:upload_id", mediaArchiveHandler.UploadObject)
 	objectLib.Get("/object/:object_id", mediaArchiveHandler.GetObject)
 	objectLib.Get("/object_info/:object_id", mediaArchiveHandler.GetObjectInfo)
 	objectLib.Delete("/object/:object_id", mediaArchiveHandler.DeleteObject)
