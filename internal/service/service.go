@@ -31,8 +31,8 @@ type Service struct {
 
 func New(redisClient *redis.Client,
 	internalSecureToken string,
-	mediaPublisher *domain.MediaPublisher,
-	mediaProvider domain.ObjectLibraryInterface,
+	mediaPublisher domain.MediaPublisherInterface,
+	objectLibrary domain.ObjectLibraryInterface,
 	numberConcurrent int,
 ) *Service {
 
@@ -44,7 +44,7 @@ func New(redisClient *redis.Client,
 	eventBus := event.NewBus(publisher)
 	commandBus := command.NewBus(publisher)
 
-	eventHandler := event.NewHandler(eventBus, commandBus, watermillLogger)
+	eventHandler := event.NewHandler(eventBus, commandBus, mediaPublisher, objectLibrary, watermillLogger)
 	eventProcessorConfig := event.NewProcessorConfig(redisClient, watermillLogger)
 
 	commandHandler := command.NewHandler(eventBus, commandBus, watermillLogger)
@@ -57,12 +57,13 @@ func New(redisClient *redis.Client,
 		listRouter = append(listRouter, watermillroute.Router())
 	}
 
-	mediaProviderHTTPHandler := httpCatchup.NewObjectLibraryProviderHTTPHandler(mediaProvider, commandBus, eventBus, watermillLogger)
+	objectLibraryHTTPHandler := httpCatchup.NewObjectLibraryProviderHTTPHandler(objectLibrary, commandBus, eventBus, watermillLogger)
+	mediaPublisherHTTPHandler := httpCatchup.NewMediaPublisherHTTPHandler(mediaPublisher, commandBus, eventBus, watermillLogger)
 
 	return &Service{
 		watermillLogger:   watermillLogger,
 		listMessageRouter: listRouter,
-		fiberApp:          httpCatchup.NewHTTPRouter(mediaProviderHTTPHandler, internalSecureToken),
+		fiberApp:          httpCatchup.NewHTTPRouter(objectLibraryHTTPHandler, mediaPublisherHTTPHandler, internalSecureToken),
 	}
 
 }

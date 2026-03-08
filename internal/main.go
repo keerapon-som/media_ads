@@ -76,8 +76,15 @@ func main() {
 		&http.Client{},
 		internalSecureToken,
 	)
-	mediaPublisher := domain.NewMediaPublisher(objectLibraryAPI)
-	objectLibrary := domain.NewObjectLibrary(objectFileTransfer, objectLibraryRepo)
+
+	mediaRepo := repository.NewMediaPublisherRepo(db)
+
+	mediaPublisher := domain.NewMediaPublisher(objectLibraryAPI, mediaRepo)
+	objectLibrary := domain.NewObjectLibrary(
+		config.ServiceConfig.ObjectLibraryDomain.DefaultCallbackURLUpdateSuccess,
+		objectFileTransfer,
+		objectLibraryRepo,
+	)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"media_ads/internal/config"
 	"media_ads/internal/domain"
+	"media_ads/internal/entities"
 	"net/http"
 
 	"github.com/ThreeDotsLabs/go-event-driven/common/log"
@@ -13,7 +14,7 @@ import (
 )
 
 type ObjectLibraryHTTPHandler struct {
-	mediaProvider   domain.ObjectLibraryInterface
+	objectLibrary   domain.ObjectLibraryInterface
 	commandBus      *cqrs.CommandBus
 	eventBus        *cqrs.EventBus
 	watermilllogger *log.WatermillLogrusAdapter
@@ -29,9 +30,9 @@ type ObjectLibraryProviderHTTPInterface interface {
 	UnpublishObject(c *fiber.Ctx) error
 }
 
-func NewObjectLibraryProviderHTTPHandler(mediaProvider domain.ObjectLibraryInterface, commandBus *cqrs.CommandBus, eventBus *cqrs.EventBus, watermillLogger *log.WatermillLogrusAdapter) ObjectLibraryProviderHTTPInterface {
+func NewObjectLibraryProviderHTTPHandler(objectLibrary domain.ObjectLibraryInterface, commandBus *cqrs.CommandBus, eventBus *cqrs.EventBus, watermillLogger *log.WatermillLogrusAdapter) ObjectLibraryProviderHTTPInterface {
 	return &ObjectLibraryHTTPHandler{
-		mediaProvider:   mediaProvider,
+		objectLibrary:   objectLibrary,
 		commandBus:      commandBus,
 		eventBus:        eventBus,
 		watermilllogger: watermillLogger,
@@ -39,7 +40,7 @@ func NewObjectLibraryProviderHTTPHandler(mediaProvider domain.ObjectLibraryInter
 }
 
 func (h *ObjectLibraryHTTPHandler) ReserveUploadSlot(c *fiber.Ctx) error {
-	uploadID, err := h.mediaProvider.ReserveUploadSlot()
+	uploadID, err := h.objectLibrary.ReserveUploadSlot()
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":  "failed to reserve upload slot",
@@ -61,6 +62,13 @@ func (h *ObjectLibraryHTTPHandler) UploadObject(c *fiber.Ctx) error {
 		})
 	}
 
+	mediaID := c.FormValue("media_id")
+	if mediaID == "" {
+		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
+			"error": "media_id is required in form data",
+		})
+	}
+
 	objectID := c.FormValue("object_id")
 	if objectID == "" {
 		objectID = uuid.NewString()
@@ -73,7 +81,7 @@ func (h *ObjectLibraryHTTPHandler) UploadObject(c *fiber.Ctx) error {
 		})
 	}
 
-	err = h.mediaProvider.UploadObject(upload_id, objectID, fileHeader)
+	mediaInfo, err := h.objectLibrary.UploadObject(upload_id, objectID, fileHeader)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":  "failed to upload media",
@@ -81,11 +89,20 @@ func (h *ObjectLibraryHTTPHandler) UploadObject(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(http.StatusOK).JSON(fiber.Map{
-		"objectID":         objectID,
-		"progress_percent": 100,
-		"completed":        true,
+	// do message callback upload success
+	err = h.eventBus.Publish(c.Context(), &entities.RequestUploadCallbackEvent{
+		Header:      entities.NewEventHeader(),
+		MediaID:     mediaID,
+		ObjectID:    objectID,
+		ContentType: mediaInfo.ContentType,
+		Success:     true,
 	})
+	if err != nil {
+		h.watermilllogger.Error("failed to publish RequestUploadCallbackEvent", err, nil)
+		// we don't return error to client even if the callback event publish fails, because the upload itself is successful. The callback will be retried by the event bus until it succeeds.
+	}
+
+	return c.Status(http.StatusOK).JSON(mediaInfo)
 }
 
 func (h *ObjectLibraryHTTPHandler) GetObject(c *fiber.Ctx) error {
@@ -97,7 +114,7 @@ func (h *ObjectLibraryHTTPHandler) GetObject(c *fiber.Ctx) error {
 		})
 	}
 
-	res, err := h.mediaProvider.GetObject(objectID)
+	res, err := h.objectLibrary.GetObject(objectID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":  "failed to download media",
@@ -124,7 +141,7 @@ func (h *ObjectLibraryHTTPHandler) GetObjectInfo(c *fiber.Ctx) error {
 		})
 	}
 
-	res, err := h.mediaProvider.GetObjectInfo(objectID)
+	res, err := h.objectLibrary.GetObjectInfo(objectID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":  "failed to get media info",
@@ -146,7 +163,7 @@ func (h *ObjectLibraryHTTPHandler) DeleteObject(c *fiber.Ctx) error {
 		})
 	}
 
-	err := h.mediaProvider.DeleteObject(objectID)
+	err := h.objectLibrary.DeleteObject(objectID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":  "failed to delete media",
@@ -168,7 +185,7 @@ func (h *ObjectLibraryHTTPHandler) PublishObject(c *fiber.Ctx) error {
 		})
 	}
 
-	err := h.mediaProvider.PublishObject(objectID)
+	err := h.objectLibrary.PublishObject(objectID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":  "failed to publish media",
@@ -191,7 +208,7 @@ func (h *ObjectLibraryHTTPHandler) UnpublishObject(c *fiber.Ctx) error {
 		})
 	}
 
-	err := h.mediaProvider.UnpublishObject(objectID)
+	err := h.objectLibrary.UnpublishObject(objectID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error":  "failed to unpublish media",

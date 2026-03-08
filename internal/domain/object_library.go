@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -9,6 +10,7 @@ import (
 	"media_ads/internal/repository"
 	"media_ads/packages"
 	"mime/multipart"
+	"net/http"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -18,24 +20,27 @@ import (
 )
 
 type ObjectLibrary struct {
-	ObjectFileTransfer *packages.ObjectFileTransferLocal
-	mediaProviderRepo  *repository.ObjectLibraryRepo
+	ObjectFileTransfer              *packages.ObjectFileTransferLocal
+	objectLibraryRepo               *repository.ObjectLibraryRepo
+	defaultCallbackURLUploadSuccess string
 }
 
 type ObjectLibraryInterface interface {
 	ReserveUploadSlot() (string, error)
-	UploadObject(upload_id string, objectID string, fileHeader *multipart.FileHeader) error
+	UploadObject(upload_id string, objectID string, fileHeader *multipart.FileHeader) (entities.MediaInfo, error)
 	GetObject(objectID string) (*entities.DownloadResponse, error)
 	GetObjectInfo(objectID string) (*entities.ObjectLibraryRepo, error)
 	DeleteObject(objectID string) error
 	PublishObject(objectID string) error
 	UnpublishObject(objectID string) error
+	CallbackUpdateUploadSuccess(mediaID string, objectID string, contentType string, isSuccess bool, callbackURL string) error
 }
 
-func NewObjectLibrary(objectFileTransfer *packages.ObjectFileTransferLocal, mediaProviderRepo *repository.ObjectLibraryRepo) ObjectLibraryInterface {
+func NewObjectLibrary(defaultCallbackURLUploadSuccess string, objectFileTransfer *packages.ObjectFileTransferLocal, objectLibraryRepo *repository.ObjectLibraryRepo) ObjectLibraryInterface {
 	return &ObjectLibrary{
-		ObjectFileTransfer: objectFileTransfer,
-		mediaProviderRepo:  mediaProviderRepo,
+		defaultCallbackURLUploadSuccess: defaultCallbackURLUploadSuccess,
+		ObjectFileTransfer:              objectFileTransfer,
+		objectLibraryRepo:               objectLibraryRepo,
 	}
 }
 
@@ -102,11 +107,11 @@ func ffprobeFromFileHeader(fileHeader *multipart.FileHeader) (map[string]any, er
 	return parsed, nil
 }
 
-func (m *ObjectLibrary) UploadObject(upload_id string, objectID string, fileHeader *multipart.FileHeader) error {
+func (m *ObjectLibrary) UploadObject(upload_id string, objectID string, fileHeader *multipart.FileHeader) (entities.MediaInfo, error) {
 
-	tx, err := m.mediaProviderRepo.GetDB().Begin()
+	tx, err := m.objectLibraryRepo.GetDB().Begin()
 	if err != nil {
-		return err
+		return entities.MediaInfo{}, err
 	}
 	defer func() {
 		if err != nil {
@@ -120,12 +125,12 @@ func (m *ObjectLibrary) UploadObject(upload_id string, objectID string, fileHead
 
 	err = m.claimUploadSlot(tx, upload_id)
 	if err != nil {
-		return err
+		return entities.MediaInfo{}, err
 	}
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		return err
+		return entities.MediaInfo{}, err
 	}
 	defer file.Close()
 
@@ -133,7 +138,7 @@ func (m *ObjectLibrary) UploadObject(upload_id string, objectID string, fileHead
 
 	key := "subfolder" + "/" + objectID
 
-	err = m.mediaProviderRepo.ObjectLibRepo.SaveObjectLibrary(
+	err = m.objectLibraryRepo.ObjectLibRepo.SaveObjectLibrary(
 		tx,
 		objectID,
 		key,
@@ -144,59 +149,59 @@ func (m *ObjectLibrary) UploadObject(upload_id string, objectID string, fileHead
 		inspection.ProbeData,
 	)
 	if err != nil {
-		return err
+		return entities.MediaInfo{}, err
 	}
 
 	err = m.ObjectFileTransfer.UploadObject(key, &file)
 	if err != nil {
-		return err
+		return entities.MediaInfo{}, err
 	}
 
 	err = m.updateUploadSlotStatus(tx, upload_id, "completed")
 	if err != nil {
-		return err
+		return entities.MediaInfo{}, err
 	}
 
-	return nil
+	return inspection, nil
 }
 
 func (m *ObjectLibrary) GetObject(objectID string) (*entities.DownloadResponse, error) {
 
-	mediaProvider, err := m.mediaProviderRepo.ObjectLibRepo.GetObjectLibraryByID(objectID)
+	objectLibrary, err := m.objectLibraryRepo.ObjectLibRepo.GetObjectLibraryByID(objectID)
 	if err != nil {
 		return &entities.DownloadResponse{}, err
 	}
 
-	if !mediaProvider.IsPublished {
+	if !objectLibrary.IsPublished {
 		return &entities.DownloadResponse{}, fmt.Errorf("object is not published: object_id=%s", objectID)
 	}
 
-	file, err := m.ObjectFileTransfer.GetObject(mediaProvider.Key)
+	file, err := m.ObjectFileTransfer.GetObject(objectLibrary.Key)
 	if err != nil {
 		return &entities.DownloadResponse{}, err
 	}
 
 	return &entities.DownloadResponse{
-		Filename:    mediaProvider.Filename,
-		Extension:   mediaProvider.Extension,
-		SizeBytes:   mediaProvider.SizeBytes,
+		Filename:    objectLibrary.Filename,
+		Extension:   objectLibrary.Extension,
+		SizeBytes:   objectLibrary.SizeBytes,
 		File:        file,
-		ContentType: mediaProvider.ContentType,
+		ContentType: objectLibrary.ContentType,
 	}, nil
 }
 
 func (m *ObjectLibrary) GetObjectInfo(objectID string) (*entities.ObjectLibraryRepo, error) {
 
-	return m.mediaProviderRepo.ObjectLibRepo.GetObjectLibraryByID(objectID)
+	return m.objectLibraryRepo.ObjectLibRepo.GetObjectLibraryByID(objectID)
 }
 
 func (m *ObjectLibrary) DeleteObject(objectID string) error {
-	mediaProvider, err := m.mediaProviderRepo.ObjectLibRepo.GetObjectLibraryByID(objectID)
+	objectLibrary, err := m.objectLibraryRepo.ObjectLibRepo.GetObjectLibraryByID(objectID)
 	if err != nil {
 		return err
 	}
 
-	tx, err := m.mediaProviderRepo.GetDB().Begin()
+	tx, err := m.objectLibraryRepo.GetDB().Begin()
 	if err != nil {
 		return err
 	}
@@ -208,12 +213,12 @@ func (m *ObjectLibrary) DeleteObject(objectID string) error {
 		}
 	}()
 
-	err = m.mediaProviderRepo.ObjectLibRepo.DeleteObjectLibraryByObjectID(tx, objectID)
+	err = m.objectLibraryRepo.ObjectLibRepo.DeleteObjectLibraryByObjectID(tx, objectID)
 	if err != nil {
 		return err
 	}
 
-	err = m.ObjectFileTransfer.DeleteObject(mediaProvider.Key)
+	err = m.ObjectFileTransfer.DeleteObject(objectLibrary.Key)
 	if err != nil {
 		return err
 	}
@@ -225,26 +230,26 @@ func (m *ObjectLibrary) ReserveUploadSlot() (string, error) {
 
 	uploadID := uuid.NewString()
 
-	return uploadID, m.mediaProviderRepo.UploadSlotRepo.ReserveUploadSlot(nil, uploadID)
+	return uploadID, m.objectLibraryRepo.UploadSlotRepo.ReserveUploadSlot(nil, uploadID)
 }
 
 func (m *ObjectLibrary) PublishObject(objectID string) error {
 
-	return m.mediaProviderRepo.ObjectLibRepo.UpdatePublishedStatus(nil, objectID, true)
+	return m.objectLibraryRepo.ObjectLibRepo.UpdatePublishedStatus(nil, objectID, true)
 }
 
 func (m *ObjectLibrary) UnpublishObject(objectID string) error {
 
-	return m.mediaProviderRepo.ObjectLibRepo.UpdatePublishedStatus(nil, objectID, false)
+	return m.objectLibraryRepo.ObjectLibRepo.UpdatePublishedStatus(nil, objectID, false)
 }
 
 // func (m *ObjectLibrary) updateUploadCompletion(tx *sql.Tx, uploadID string, success bool) error {
-// 	return m.mediaProviderRepo.UpdateUploadCompletion(tx, uploadID, success)
+// 	return m.objectLibraryRepo.UpdateUploadCompletion(tx, uploadID, success)
 // }
 
 func (m *ObjectLibrary) claimUploadSlot(tx *sql.Tx, uploadID string) error {
 
-	resp, err := m.mediaProviderRepo.UploadSlotRepo.GetUploadSlot(uploadID)
+	resp, err := m.objectLibraryRepo.UploadSlotRepo.GetUploadSlot(uploadID)
 	if err != nil {
 		return err
 	}
@@ -253,10 +258,55 @@ func (m *ObjectLibrary) claimUploadSlot(tx *sql.Tx, uploadID string) error {
 		return fmt.Errorf("upload slot is not pending: upload_id=%s, status=%s", uploadID, resp.Status)
 	}
 
-	return m.mediaProviderRepo.UploadSlotRepo.UpdateUploadStatus(tx, uploadID, "claimed")
+	return m.objectLibraryRepo.UploadSlotRepo.UpdateUploadStatus(tx, uploadID, "claimed")
 }
 
 func (m *ObjectLibrary) updateUploadSlotStatus(tx *sql.Tx, uploadID string, status string) error {
 
-	return m.mediaProviderRepo.UploadSlotRepo.UpdateUploadStatus(tx, uploadID, status)
+	return m.objectLibraryRepo.UploadSlotRepo.UpdateUploadStatus(tx, uploadID, status)
+}
+
+// h.mediaPublisher.UpdateMediaUploadCompleted(
+// 	mediaID,
+// 	objectID,
+// 	mediaInfo.ContentType,
+// )
+
+func (m *ObjectLibrary) CallbackUpdateUploadSuccess(mediaID string, objectID string, contentType string, isSuccess bool, callbackURL string) error {
+
+	if callbackURL == "" {
+		callbackURL = m.defaultCallbackURLUploadSuccess
+	}
+
+	payload := &entities.CallbackUpdateUploadStatusRequest{
+		MediaID:     mediaID,
+		ObjectID:    objectID,
+		ContentType: contentType,
+		Success:     isSuccess,
+	}
+
+	httpClient := &http.Client{Timeout: 10 * time.Second}
+
+	reqBody, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, callbackURL, bytes.NewBuffer(reqBody))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("callback returned non-200 status: %d", resp.StatusCode)
+	}
+
+	return nil
 }

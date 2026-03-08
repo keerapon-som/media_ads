@@ -65,17 +65,17 @@ func (o *ObjectLibraryAPI) ReserveUploadSlot() (string, error) {
 	return payload.UploadID, nil
 }
 
-func (o *ObjectLibraryAPI) UploadObject(uploadID string, objectID string, fileHeader *multipart.FileHeader) error {
+func (o *ObjectLibraryAPI) UploadObject(uploadID string, objectID string, fileHeader *multipart.FileHeader) (entities.MediaInfo, error) {
 	if uploadID == "" {
-		return fmt.Errorf("upload_id is required")
+		return entities.MediaInfo{}, fmt.Errorf("upload_id is required")
 	}
 	if fileHeader == nil {
-		return fmt.Errorf("file header is required")
+		return entities.MediaInfo{}, fmt.Errorf("file header is required")
 	}
 
 	file, err := fileHeader.Open()
 	if err != nil {
-		return fmt.Errorf("open multipart file: %w", err)
+		return entities.MediaInfo{}, fmt.Errorf("open multipart file: %w", err)
 	}
 	defer file.Close()
 
@@ -84,7 +84,7 @@ func (o *ObjectLibraryAPI) UploadObject(uploadID string, objectID string, fileHe
 
 	if objectID != "" {
 		if err := writer.WriteField("object_id", objectID); err != nil {
-			return fmt.Errorf("write object_id field: %w", err)
+			return entities.MediaInfo{}, fmt.Errorf("write object_id field: %w", err)
 		}
 	}
 
@@ -94,28 +94,33 @@ func (o *ObjectLibraryAPI) UploadObject(uploadID string, objectID string, fileHe
 
 	part, err := writer.CreatePart(h)
 	if err != nil {
-		return fmt.Errorf("create file part: %w", err)
+		return entities.MediaInfo{}, fmt.Errorf("create file part: %w", err)
 	}
 
 	if _, err := io.Copy(part, file); err != nil {
-		return fmt.Errorf("copy file content: %w", err)
+		return entities.MediaInfo{}, fmt.Errorf("copy file content: %w", err)
 	}
 
 	if err := writer.Close(); err != nil {
-		return fmt.Errorf("finalize multipart body: %w", err)
+		return entities.MediaInfo{}, fmt.Errorf("finalize multipart body: %w", err)
 	}
 
 	resp, err := o.doRequest(http.MethodPut, "/object_library/upload/"+uploadID, false, body, writer.FormDataContentType())
 	if err != nil {
-		return err
+		return entities.MediaInfo{}, err
 	}
 	defer resp.Body.Close()
 
 	if err := ensureSuccess(resp); err != nil {
-		return err
+		return entities.MediaInfo{}, err
 	}
 
-	return nil
+	var payload entities.MediaInfo
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return entities.MediaInfo{}, fmt.Errorf("decode upload object response: %w", err)
+	}
+
+	return payload, nil
 }
 
 func (o *ObjectLibraryAPI) GetObject(objectID string) (*entities.DownloadResponse, error) {
@@ -241,6 +246,10 @@ func (o *ObjectLibraryAPI) UnpublishObject(objectID string) error {
 	defer resp.Body.Close()
 
 	return ensureSuccess(resp)
+}
+
+func (o *ObjectLibraryAPI) CallbackUpdateUploadSuccess(mediaID string, objectID string, contentType string, isSuccess bool, callbackURL string) error {
+	return nil
 }
 
 func (o *ObjectLibraryAPI) doRequest(method, endpoint string, internalOnly bool, body io.Reader, contentType string) (*http.Response, error) {

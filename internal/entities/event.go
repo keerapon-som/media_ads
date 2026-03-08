@@ -24,3 +24,19 @@ type HelloCQRSEvent struct {
 	Header EventHeader `json:"header"`
 	Hello  string      `json:"hello"`
 }
+
+type ReceiveUploadCallbackEvent struct {
+	Header      EventHeader `json:"header"`
+	MediaID     string      `json:"media_id"`
+	ObjectID    string      `json:"object_id"`
+	ContentType string      `json:"content_type"`
+	Success     bool        `json:"success"`
+}
+
+type RequestUploadCallbackEvent struct {
+	Header      EventHeader `json:"header"`
+	MediaID     string      `json:"media_id"`
+	ObjectID    string      `json:"object_id"`
+	ContentType string      `json:"content_type"`
+	Success     bool        `json:"success"`
+}

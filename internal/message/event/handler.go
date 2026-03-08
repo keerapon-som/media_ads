@@ -1,19 +1,25 @@
 package event
 
 import (
+	"media_ads/internal/domain"
+
 	"github.com/ThreeDotsLabs/watermill"
 	"github.com/ThreeDotsLabs/watermill/components/cqrs"
 )
 
 type Handler struct {
-	eventBus   *cqrs.EventBus
-	commandBus *cqrs.CommandBus
-	logger     watermill.LoggerAdapter
+	eventBus       *cqrs.EventBus
+	commandBus     *cqrs.CommandBus
+	mediaPublisher domain.MediaPublisherInterface
+	objectLibrary  domain.ObjectLibraryInterface
+	logger         watermill.LoggerAdapter
 }
 
 func NewHandler(
 	eventBus *cqrs.EventBus,
 	commandBus *cqrs.CommandBus,
+	mediaPublisher domain.MediaPublisherInterface,
+	objectLibrary domain.ObjectLibraryInterface,
 	logger watermill.LoggerAdapter,
 ) Handler {
 
@@ -30,9 +36,11 @@ func NewHandler(
 	}
 
 	handler := Handler{
-		eventBus:   eventBus,
-		commandBus: commandBus,
-		logger:     logger,
+		eventBus:       eventBus,
+		commandBus:     commandBus,
+		mediaPublisher: mediaPublisher,
+		objectLibrary:  objectLibrary,
+		logger:         logger,
 	}
 
 	return handler

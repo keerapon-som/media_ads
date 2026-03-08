@@ -49,8 +49,12 @@ func NewWatermillRouter(
 
 	eventProcessor.AddHandlers(
 		cqrs.NewEventHandler(
-			"HelloCQRSEvent",
-			eventHandler.HelloCQRSEvent,
+			"ReceiveUploadCallbackEvent",
+			eventHandler.ReceiveUploadCallbackEvent,
+		),
+		cqrs.NewEventHandler(
+			"RequestUploadCallbackEvent",
+			eventHandler.RequestUploadCallbackEvent,
 		),
 	)
 

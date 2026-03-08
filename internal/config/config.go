@@ -66,7 +66,8 @@ type ObjectLibraryAPIConfig struct {
 }
 
 type ObjectLibraryDomainConfig struct {
-	BaseURL string
+	BaseURL                         string
+	DefaultCallbackURLUpdateSuccess string
 }
 
 type ServiceConfig struct {
@@ -144,7 +145,8 @@ func doInit() {
 				SecureKey: getEnvString("OBJECT_LIBRARY_INTERNAL_TOKEN", "example_secure_key"),
 			},
 			ObjectLibraryDomain: ObjectLibraryDomainConfig{
-				BaseURL: getEnvString("OBJECT_LIBRARY_DOMAIN_BASE_URL", "http://localhost:8888"),
+				BaseURL:                         getEnvString("OBJECT_LIBRARY_DOMAIN_BASE_URL", "http://localhost:8888"),
+				DefaultCallbackURLUpdateSuccess: getEnvString("OBJECT_LIBRARY_DEFAULT_CALLBACK_URL_UPDATE_SUCCESS", "http://localhost:8888/media_publisher/callback/upload/status"),
 			},
 		},
 	}
