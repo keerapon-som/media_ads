@@ -5,9 +5,11 @@ import (
 	"flag"
 	"media_ads/internal/config"
 	"media_ads/internal/domain"
+	"media_ads/internal/domain/api"
 	"media_ads/internal/repository"
 	"media_ads/internal/service"
 	"media_ads/packages"
+	"net/http"
 	"os"
 	"os/signal"
 
@@ -66,15 +68,21 @@ func main() {
 	}
 	defer packages.Disconnect(db)
 
-	mediaProviderRepo := repository.NewObjectLibraryRepo(db)
+	objectLibraryRepo := repository.NewObjectLibraryRepo(db)
 
-	mediaPublisher := domain.NewMediaPublisher()
-	mediaProvider := domain.NewObjectLibrary(objectFileTransfer, mediaProviderRepo)
+	internalSecureToken := config.ServiceConfig.ObjectLibraryAPI.SecureKey
+	objectLibraryAPI := api.NewObjectLibraryAPI(
+		config.ServiceConfig.ObjectLibraryAPI.BaseURL,
+		&http.Client{},
+		internalSecureToken,
+	)
+	mediaPublisher := domain.NewMediaPublisher(objectLibraryAPI)
+	objectLibrary := domain.NewObjectLibrary(objectFileTransfer, objectLibraryRepo)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	err = service.New(redisClient, mediaPublisher, mediaProvider, 10).Run(ctx)
+	err = service.New(redisClient, internalSecureToken, mediaPublisher, objectLibrary, 10).Run(ctx)
 	if err != nil {
 		panic(err)
 	}

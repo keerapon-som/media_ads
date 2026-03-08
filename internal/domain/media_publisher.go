@@ -1,8 +1,11 @@
 package domain
 
 type MediaPublisher struct {
+	objectLib ObjectLibraryInterface
 }
 
-func NewMediaPublisher() *MediaPublisher {
-	return &MediaPublisher{}
+func NewMediaPublisher(objectLibraryAPI ObjectLibraryInterface) *MediaPublisher {
+	return &MediaPublisher{
+		objectLib: objectLibraryAPI,
+	}
 }

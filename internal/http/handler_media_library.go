@@ -1,6 +1,8 @@
 package http
 
 import (
+	"fmt"
+	"media_ads/internal/config"
 	"media_ads/internal/domain"
 	"net/http"
 
@@ -11,7 +13,7 @@ import (
 )
 
 type ObjectLibraryHTTPHandler struct {
-	mediaProvider   *domain.ObjectLibrary
+	mediaProvider   domain.ObjectLibraryInterface
 	commandBus      *cqrs.CommandBus
 	eventBus        *cqrs.EventBus
 	watermilllogger *log.WatermillLogrusAdapter
@@ -27,7 +29,7 @@ type ObjectLibraryProviderHTTPInterface interface {
 	UnpublishObject(c *fiber.Ctx) error
 }
 
-func NewObjectLibraryProviderHTTPHandler(mediaProvider *domain.ObjectLibrary, commandBus *cqrs.CommandBus, eventBus *cqrs.EventBus, watermillLogger *log.WatermillLogrusAdapter) ObjectLibraryProviderHTTPInterface {
+func NewObjectLibraryProviderHTTPHandler(mediaProvider domain.ObjectLibraryInterface, commandBus *cqrs.CommandBus, eventBus *cqrs.EventBus, watermillLogger *log.WatermillLogrusAdapter) ObjectLibraryProviderHTTPInterface {
 	return &ObjectLibraryHTTPHandler{
 		mediaProvider:   mediaProvider,
 		commandBus:      commandBus,
@@ -46,7 +48,7 @@ func (h *ObjectLibraryHTTPHandler) ReserveUploadSlot(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusOK).JSON(fiber.Map{
-		"upload_id": uploadID,
+		"upload_id": fmt.Sprintf("%s/object_library/upload/%s", config.GetConfig().ServiceConfig.ObjectLibraryDomain.BaseURL, uploadID),
 	})
 }
 

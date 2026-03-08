@@ -60,9 +60,20 @@ type PostgresConfig struct {
 	SSLMode  string
 }
 
+type ObjectLibraryAPIConfig struct {
+	BaseURL   string
+	SecureKey string
+}
+
+type ObjectLibraryDomainConfig struct {
+	BaseURL string
+}
+
 type ServiceConfig struct {
-	Redis          RedisConfig
-	PostgresConfig PostgresConfig
+	Redis               RedisConfig
+	PostgresConfig      PostgresConfig
+	ObjectLibraryAPI    ObjectLibraryAPIConfig
+	ObjectLibraryDomain ObjectLibraryDomainConfig
 }
 
 func GetConfig() *Config {
@@ -127,6 +138,13 @@ func doInit() {
 				Password: getEnvString("POSTGRES_PASSWORD", ""),
 				DBName:   getEnvString("POSTGRES_DBNAME", "object_library"),
 				SSLMode:  getEnvString("POSTGRES_SSLMODE", "disable"),
+			},
+			ObjectLibraryAPI: ObjectLibraryAPIConfig{
+				BaseURL:   getEnvString("OBJECT_LIBRARY_BASE_URL", "http://localhost:8888"),
+				SecureKey: getEnvString("OBJECT_LIBRARY_INTERNAL_TOKEN", "example_secure_key"),
+			},
+			ObjectLibraryDomain: ObjectLibraryDomainConfig{
+				BaseURL: getEnvString("OBJECT_LIBRARY_DOMAIN_BASE_URL", "http://localhost:8888"),
 			},
 		},
 	}

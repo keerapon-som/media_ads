@@ -22,7 +22,17 @@ type ObjectLibrary struct {
 	mediaProviderRepo  *repository.ObjectLibraryRepo
 }
 
-func NewObjectLibrary(objectFileTransfer *packages.ObjectFileTransferLocal, mediaProviderRepo *repository.ObjectLibraryRepo) *ObjectLibrary {
+type ObjectLibraryInterface interface {
+	ReserveUploadSlot() (string, error)
+	UploadObject(upload_id string, objectID string, fileHeader *multipart.FileHeader) error
+	GetObject(objectID string) (*entities.DownloadResponse, error)
+	GetObjectInfo(objectID string) (*entities.ObjectLibraryRepo, error)
+	DeleteObject(objectID string) error
+	PublishObject(objectID string) error
+	UnpublishObject(objectID string) error
+}
+
+func NewObjectLibrary(objectFileTransfer *packages.ObjectFileTransferLocal, mediaProviderRepo *repository.ObjectLibraryRepo) ObjectLibraryInterface {
 	return &ObjectLibrary{
 		ObjectFileTransfer: objectFileTransfer,
 		mediaProviderRepo:  mediaProviderRepo,

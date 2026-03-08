@@ -30,8 +30,9 @@ type Service struct {
 }
 
 func New(redisClient *redis.Client,
+	internalSecureToken string,
 	mediaPublisher *domain.MediaPublisher,
-	mediaProvider *domain.ObjectLibrary,
+	mediaProvider domain.ObjectLibraryInterface,
 	numberConcurrent int,
 ) *Service {
 
@@ -61,7 +62,7 @@ func New(redisClient *redis.Client,
 	return &Service{
 		watermillLogger:   watermillLogger,
 		listMessageRouter: listRouter,
-		fiberApp:          httpCatchup.NewHTTPRouter(mediaProviderHTTPHandler),
+		fiberApp:          httpCatchup.NewHTTPRouter(mediaProviderHTTPHandler, internalSecureToken),
 	}
 
 }
